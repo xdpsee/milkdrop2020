@@ -34,6 +34,10 @@ OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "platform.h"
 #include <complex>
 
+#ifdef __APPLE__
+#include <Accelerate/Accelerate.h>
+#endif
+
 class FFT : public IFFT
 {
 public:
@@ -45,11 +49,16 @@ private:
     int m_NFREQ;
     float m_envelope_power;
     bool m_bEqualize;
-    
+#ifdef __APPLE__
+    FFTSetup m_fftSetup = nullptr;
+    int m_fftSetupSize = 0;
+    std::vector<float> m_scratch;
+#endif
+
     void InitEnvelopeTable(float power, int count);
     void InitEqualizeTable(int count);
     void InitBitRevTable(int nfreq);
-    
+
     std::vector<int>   bitrevtable;
     std::vector<float> envelope;
     std::vector<float> equalize;
@@ -66,6 +75,12 @@ IFFT *CreateFFT(bool bEqualize, float envelope_power)
 
 FFT::~FFT()
 {
+#ifdef __APPLE__
+    if (m_fftSetup) {
+        vDSP_destroy_fftsetup(m_fftSetup);
+        m_fftSetup = nullptr;
+    }
+#endif
 }
 
 /*****************************************************************************/
@@ -168,7 +183,52 @@ void FFT::InitBitRevTable(int nfreq)
 
 using Complex = std::complex<float>;
 
-#if 1
+#ifdef __APPLE__
+void FFT::time_to_frequency_domain(const float *in_wavedata, int in_count, float *out_spectraldata, int out_count)
+{
+    PROFILE_FUNCTION()
+
+    int nfreq = out_count * 2;
+
+    // setup FFT if size changed
+    int log2N = (int)log2f((float)nfreq);
+    if (nfreq != m_fftSetupSize) {
+        if (m_fftSetup) vDSP_destroy_fftsetup(m_fftSetup);
+        m_fftSetup = vDSP_create_fftsetup(log2N, kFFTRadix2);
+        m_fftSetupSize = nfreq;
+        m_scratch.resize(nfreq);
+    }
+
+    if (envelope.size() != (size_t)in_count)
+        InitEnvelopeTable(m_envelope_power, in_count);
+
+    if (equalize.size() != (size_t)out_count)
+        InitEqualizeTable(out_count);
+
+    // apply envelope in natural order, zero-pad
+    memset(m_scratch.data(), 0, nfreq * sizeof(float));
+    for (int i = 0; i < in_count; i++)
+        m_scratch[i] = in_wavedata[i] * envelope[i];
+
+    // pack into split complex (even indices → real, odd → imag)
+    DSPSplitComplex splitComplex;
+    splitComplex.realp = m_scratch.data();
+    splitComplex.imagp = m_scratch.data() + 1;
+
+    vDSP_fft_zrip(m_fftSetup, &splitComplex, 2, log2N, kFFTDirection_Forward);
+
+    // magnitudes: out_spectraldata[i] = sqrtf(real² + imag²)
+    // vDSP_zvmags gives real² + imag², we then sqrt
+    vDSP_zvmags(&splitComplex, 2, out_spectraldata, 1, out_count);
+    for (int i = 0; i < out_count; i++)
+        out_spectraldata[i] = sqrtf(out_spectraldata[i]);
+
+    if (m_bEqualize)
+        for (int i = 0; i < out_count; i++)
+            out_spectraldata[i] *= equalize[i];
+}
+
+#else
 void FFT::time_to_frequency_domain(const float *in_wavedata, int in_count, float *out_spectraldata, int out_count)
 {
     PROFILE_FUNCTION()
@@ -287,115 +347,6 @@ void FFT::time_to_frequency_domain(const float *in_wavedata, int in_count, float
     }
 }
 
-#else
-void FFT::time_to_frequency_domain(const float *in_wavedata, int in_count, float *out_spectraldata, int out_count)
-{
-    PROFILE_FUNCTION()
-
-    // Converts time-domain samples from in_wavedata[]
-    //   into frequency-domain samples in out_spectraldata[].
-    // The array lengths are the two parameters to Init().
-    
-    // The last sample of the output data will represent the frequency
-    //   that is 1/4th of the input sampling rate.  For example,
-    //   if the input wave data is sampled at 44,100 Hz, then the last 
-    //   sample of the spectral data output will represent the frequency
-    //   11,025 Hz.  The first sample will be 0 Hz; the frequencies of 
-    //   the rest of the samples vary linearly in between.
-    // Note that since human hearing is limited to the range 200 - 20,000
-    //   Hz.  200 is a low bass hum; 20,000 is an ear-piercing high shriek.
-    // Each time the frequency doubles, that sounds like going up an octave.
-    //   That means that the difference between 200 and 300 Hz is FAR more
-    //   than the difference between 5000 and 5100, for example!
-    // So, when trying to analyze bass, you'll want to look at (probably)
-    //   the 200-800 Hz range; whereas for treble, you'll want the 1,400 -
-    //   11,025 Hz range.
-    // If you want to get 3 bands, try it this way:
-    //   a) 11,025 / 200 = 55.125
-    //   b) to get the number of octaves between 200 and 11,025 Hz, solve for n:
-    //          2^n = 55.125
-    //          n = log 55.125 / log 2
-    //          n = 5.785
-    //   c) so each band should represent 5.785/3 = 1.928 octaves; the ranges are:
-    //          1) 200 - 200*2^1.928                    or  200  - 761   Hz
-    //          2) 200*2^1.928 - 200*2^(1.928*2)        or  761  - 2897  Hz
-    //          3) 200*2^(1.928*2) - 200*2^(1.928*3)    or  2897 - 11025 Hz
-
-    // A simple sine-wave-based envelope is convolved with the waveform
-    //   data before doing the FFT, to emeliorate the bad frequency response
-    //   of a square (i.e. nonexistent) filter.
-
-    // You might want to slightly damp (blur) the input if your signal isn't
-    //   of a very high quality, to reduce high-frequency noise that would
-    //   otherwise show up in the output.
-
-
-    constexpr int MAX = 4096;
-    float real[MAX];
-    float imag[MAX];
-
-    assert(NFREQ <= MAX);
-
-
-
-    // 1. set up input to the fft
-    for (int i=0; i<NFREQ; i++)
-    {
-        real[i] = 0;
-        imag[i] = 0.0f;
-
-        int idx = bitrevtable[i];
-        if (idx < in_count)
-            real[i] = in_wavedata[idx];
-
-        if (idx < m_samples_in)
-            real[i] *= envelope[idx];
-    }
-    
-    // 2. perform FFT
-    int dftsize = 2;
-    int t = 0;
-    while (dftsize <= NFREQ) 
-    {
-        float theta = (float)(-2.0f * M_PI/(float)dftsize);
-        
-        float wpr = cosf(theta);
-        float wpi = sinf(theta);
-        float wr = 1.0f;
-        float wi = 0.0f;
-        int hdftsize = dftsize >> 1;
-
-        for (int m = 0; m < hdftsize; m+=1)
-        {
-            for (int i = m; i < NFREQ; i+=dftsize)
-            {
-                int j = i + hdftsize;
-                float tempr = wr*real[j] - wi*imag[j];
-                float tempi = wr*imag[j] + wi*real[j];
-                real[j] = real[i] - tempr;
-                imag[j] = imag[i] - tempi;
-                real[i] += tempr;
-                imag[i] += tempi;
-            }
-
-            float wtemp=wr;
-            wr = wtemp *wpr - wi*wpi;
-            wi = wi*wpr + wtemp*wpi;
-        }
-
-        dftsize <<= 1;
-        t++;
-    }
-
-    
-    // 3. take the magnitude & equalize it (on a log10 scale) for output
-    for (int i=0; i< m_samples_out; i++)
-        out_spectraldata[i] = sqrtf(real[i]*real[i] + imag[i]*imag[i]);
-
-    if (!equalize.empty())
-        for (int i=0; i< m_samples_out; i++)
-            out_spectraldata[i] *= equalize[i];
-}
 #endif
 
 /*****************************************************************************/

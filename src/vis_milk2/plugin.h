@@ -63,11 +63,34 @@ enum
 
 using StringVec = std::vector<std::string>;
 
+enum class MeshQuality
+{
+    Low    = 0,  // 32x24
+    Medium = 1,  // 48x36 (default)
+    High   = 2,  // 64x48
+    Ultra  = 3,  // 96x72
+};
+
+const char *MeshQualityToString(MeshQuality q);
+
 class CPlugin : public IVisualizer
 {
 public:
         CPlugin(render::ContextPtr context, ITextureSetPtr texture_map, std::string assetDir);
 		virtual ~CPlugin();
+
+        void SetMeshQuality(MeshQuality quality);
+        MeshQuality GetMeshQuality() const { return m_meshQuality; }
+
+        // IVisualizer interface
+        virtual void SetMeshQuality(int quality) override
+        {
+            SetMeshQuality((MeshQuality)quality);
+        }
+        virtual int GetMeshQuality() override
+        {
+            return (int)m_meshQuality;
+        }
 
 		// called by vis.cpp, on behalf of Winamp:
 		virtual bool PluginInitialize();
@@ -116,6 +139,7 @@ public:
 		float       m_fInvAspectY;
 		int			m_nGridX;
 		int			m_nGridY;
+		MeshQuality m_meshQuality = MeshQuality::Medium;
 
 		// PIXEL SHADERS
 //        ShaderInfoPtr             m_BlurShaders[2];

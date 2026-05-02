@@ -1190,38 +1190,45 @@ void CState::ComputeGridAlphaValues_ComputeBegin()
     int gridY = m_plugin->m_nGridY;
 
     int total  = (gridY+1) * (gridX+1);
-    
+
     m_verts.resize(total);
-    
-    m_pervertex_buffer->Resize(total);
 
-    for (int n=0; n < total; n++)
+    bool hasExpression = !m_pervertex_expression->IsEmpty();
+    if (hasExpression)
     {
-        float vx  = m_vertinfo[n].vx;
-        float vy  = m_vertinfo[n].vy;
-        float rad = m_vertinfo[n].rad;
-        float ang = m_vertinfo[n].ang;
-        // restore all the variables to their original states,
-        //  run the user-defined equations,
-        //  then move the results into local vars for computation as floats
-        
-        var_pv_xy.x        = (double)(vx* 0.5f*fAspectX + 0.5f);
-        var_pv_xy.y        = (double)(vy*-0.5f*fAspectY + 0.5f);
-        var_pv_rad        = (double)rad;
-        var_pv_ang        = (double)ang;
-        var_pv_zoom    = var_pf_zoom;
-        var_pv_zoomexp    = var_pf_zoomexp;
-        var_pv_rot        = var_pf_rot;
-        var_pv_warp    = var_pf_warp;
-        var_pv_cxy        = var_pf_cxy;
-        var_pv_dxy        = var_pf_dxy;
-        var_pv_sxy        = var_pf_sxy;
+        m_pervertex_buffer->Resize(total);
 
-        m_pervertex_buffer->StoreJob(n);
+        for (int n=0; n < total; n++)
+        {
+            float vx  = m_vertinfo[n].vx;
+            float vy  = m_vertinfo[n].vy;
+            float rad = m_vertinfo[n].rad;
+            float ang = m_vertinfo[n].ang;
+            // restore all the variables to their original states,
+            //  run the user-defined equations,
+            //  then move the results into local vars for computation as floats
+
+            var_pv_xy.x        = (double)(vx* 0.5f*fAspectX + 0.5f);
+            var_pv_xy.y        = (double)(vy*-0.5f*fAspectY + 0.5f);
+            var_pv_rad        = (double)rad;
+            var_pv_ang        = (double)ang;
+            var_pv_zoom    = var_pf_zoom;
+            var_pv_zoomexp    = var_pf_zoomexp;
+            var_pv_rot        = var_pf_rot;
+            var_pv_warp    = var_pf_warp;
+            var_pv_cxy        = var_pf_cxy;
+            var_pv_dxy        = var_pf_dxy;
+            var_pv_sxy        = var_pf_sxy;
+
+            m_pervertex_buffer->StoreJob(n);
+        }
+
+        // execute all kernels
+        m_pervertex_buffer->ExecuteAsync();
     }
-
-    // execute all kernels
-    m_pervertex_buffer->ExecuteAsync();
+    else
+    {
+    }
 }
 
 
@@ -1243,18 +1250,20 @@ void CState::ComputeGridAlphaValues_ComputeEnd()
     f[1] =  8.77f + 3.0f*cosf(fWarpTime*1.113f + 7);
     f[2] = 10.54f + 3.0f*cosf(fWarpTime*1.233f + 3);
     f[3] = 11.49f + 4.0f*cosf(fWarpTime*0.933f + 5);
-    
+
     // texel alignment
 //    float texel_offset_x = m_plugin->m_context->GetTexelOffset() / (float)m_plugin->m_nTexSizeX;
 //    float texel_offset_y = m_plugin->m_context->GetTexelOffset() / (float)m_plugin->m_nTexSizeY;
 
     // wait for end
-    m_pervertex_buffer->Sync();
+    bool hasExpression = !m_pervertex_expression->IsEmpty();
+    if (hasExpression)
+        m_pervertex_buffer->Sync();
 
     // complete
 //    int n = 0;
 //    for (int y=0; y<=m_plugin->m_nGridY; y++)
-    int total = m_pervertex_buffer->GetSize();
+    int total = hasExpression ? m_pervertex_buffer->GetSize() : (int)m_verts.size();
     for (int n=0; n < total; n++)
     {
 //        for (int x=0; x<=m_plugin->m_nGridX; x++)
@@ -1276,7 +1285,8 @@ void CState::ComputeGridAlphaValues_ComputeEnd()
 //            var_pv_dxy        = var_pf_dxy;
 //            var_pv_sxy        = var_pf_sxy;
 
-            m_pervertex_buffer->ReadJob(n);
+            if (hasExpression)
+                m_pervertex_buffer->ReadJob(n);
 
             
             float fZoom = (float)(var_pv_zoom);

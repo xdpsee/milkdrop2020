@@ -1513,6 +1513,20 @@ void VizController::DrawPanel_Video()
         auto texture = m_vizualizer->GetOutputTexture();
         TableNameValue("Output Texture", "%dx%dx%s", texture->GetWidth(), texture->GetHeight(), PixelFormatToString(texture->GetFormat()) );
 
+        // mesh quality selector
+        {
+            ImGui::TableNextRow();
+            ImGui::TableNextColumn();
+            ImGui::Text("Mesh Quality");
+            ImGui::TableNextColumn();
+            int currentQuality = m_vizualizer->GetMeshQuality();
+            const char* items[] = { "Low (32x24)", "Medium (48x36)", "High (64x48)", "Ultra (96x72)" };
+            if (ImGui::Combo("##meshquality", &currentQuality, items, 4))
+            {
+                m_vizualizer->SetMeshQuality(currentQuality);
+            }
+        }
+
 
         ImGui::Separator();
 
@@ -1550,9 +1564,14 @@ void VizController::DrawPanel_Video()
             
 //                    IMGUI_API void          PlotHistogram(const char* label, const float* values, int values_count, int values_offset = 0, const char* overlay_text = NULL, float scale_min = FLT_MAX, float scale_max = FLT_MAX, ImVec2 graph_size = ImVec2(0, 0), int stride = sizeof(float));
 
+          // build display array (ring buffer → linear order)
+          std::vector<float> historyDisplay(m_frameTimeHistory.size());
+          for (int i = 0; i < (int)m_frameTimeHistory.size(); i++)
+              historyDisplay[i] = m_frameTimeHistory[(m_frameTimeHistoryHead + i) % m_frameTimeHistory.size()];
+
           ImGui::PlotHistogram("",
-                               m_frameTimeHistory.data(),
-                               (int)m_frameTimeHistory.size(),
+                               historyDisplay.data(),
+                               (int)historyDisplay.size(),
                                 0, // values offset
                                "", // overlay text
                                0.0f, 64.0f, // scale_min scale_msx
@@ -2258,9 +2277,9 @@ void VizController::RenderFrame(float dt)
     
     if (m_frameTimeHistory.empty())
         m_frameTimeHistory.resize(256);
-    
-    m_frameTimeHistory.push_back(m_frameTime);
-    m_frameTimeHistory.erase(m_frameTimeHistory.begin());
+
+    m_frameTimeHistory[m_frameTimeHistoryHead] = m_frameTime;
+    m_frameTimeHistoryHead = (m_frameTimeHistoryHead + 1) % 256;
 
     
     if (m_audio_microphone && m_audioSource != m_audio_microphone) {

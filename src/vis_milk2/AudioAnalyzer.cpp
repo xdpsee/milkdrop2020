@@ -32,43 +32,52 @@ public:
     T ComputeSum(size_t count)
     {
         if (count >= m_count) count = m_count;
-        
-        
+
+        if (count == m_count)
+            return m_running_sum;
+
         T total = T();
         size_t pos = m_pos;
         while (count > 0)
         {
             if (pos == 0) pos = m_size;
             pos--;
-            
+
             total += m_history[pos];
             count--;
         }
-        
+
         return total;
     }
-    
+
     void Write(T f)
     {
+        m_running_sum += f;
+        if (m_count >= m_size) {
+            m_running_sum -= m_history[m_pos];
+        }
+
         m_count++;
         if (m_count > m_size) m_count = m_size;
-        
+
         m_history[m_pos] = f;
         m_pos++;
         if (m_pos >= m_size)
             m_pos = 0;
     }
-    
+
     void Reset()
     {
         m_count = 0;
         m_pos = 0;
+        m_running_sum = T();
     }
-    
+
 protected:
     size_t m_count = 0;
     size_t m_pos = 0;
     size_t m_size;
+    T m_running_sum = T();
     std::vector<T> m_history;
 };
 

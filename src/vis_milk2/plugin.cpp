@@ -582,6 +582,8 @@ CPlugin::CPlugin(ContextPtr context, ITextureSetPtr texture_map, std::string ass
     LoadEmptyPreset();
     LoadEmptyPreset();
 
+    SetMeshQuality(MeshQuality::Medium);
+
 	m_verts.clear();
 	m_vertinfo.clear();
     m_indices_list.clear();
@@ -684,6 +686,33 @@ ShaderPtr CPlugin::LoadShaderFromFile(const char *name)
                         
     
     return shader;
+}
+
+const char *MeshQualityToString(MeshQuality q)
+{
+    switch (q)
+    {
+        case MeshQuality::Low:    return "Low (32x24)";
+        case MeshQuality::Medium: return "Medium (48x36)";
+        case MeshQuality::High:   return "High (64x48)";
+        case MeshQuality::Ultra:  return "Ultra (96x72)";
+    }
+    return "Unknown";
+}
+
+void CPlugin::SetMeshQuality(MeshQuality quality)
+{
+    m_meshQuality = quality;
+
+    switch (quality)
+    {
+        case MeshQuality::Low:    m_nGridX = 32; m_nGridY = 24; break;
+        case MeshQuality::Medium: m_nGridX = 48; m_nGridY = 36; break;
+        case MeshQuality::High:   m_nGridX = 64; m_nGridY = 48; break;
+        case MeshQuality::Ultra:  m_nGridX = 96; m_nGridY = 72; break;
+    }
+
+    AllocateVertexData();
 }
 
 void CPlugin::SetOutputSize(Size2D size)

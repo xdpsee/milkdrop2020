@@ -47,6 +47,9 @@ public:
     virtual render::TexturePtr GetOutputTexture() =0;
     virtual void CaptureScreenshot(render::TexturePtr texture, Vector2 pos, Size2D size) =0;
 
+    virtual void SetMeshQuality(int quality) = 0;
+    virtual int  GetMeshQuality() = 0;
+
     virtual void Render(float dt, Size2D output_size, IAudioSourcePtr audioSource) =0;
     virtual void DrawDebugUI() = 0;
     virtual void DrawAudioUI() = 0;

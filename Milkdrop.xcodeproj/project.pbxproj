@@ -312,6 +312,8 @@
 		21DFB7F8264377550046A9B0 /* LzmaLib.c in Sources */ = {isa = PBXBuildFile; fileRef = 21DFB72B264377550046A9B0 /* LzmaLib.c */; };
 		21F3EF0E2332D94A0028EB99 /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 21F3EF0D2332D94A0028EB99 /* LaunchScreen.storyboard */; };
 		21FF43B023EE7BDE00AC9831 /* libz.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = 21FF43AD23EE7BDE00AC9831 /* libz.tbd */; };
+		35E9727A2FA5F724004EE4B7 /* Accelerate.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 35E972792FA5F724004EE4B7 /* Accelerate.framework */; };
+		35E9727C2FA5F803004EE4B7 /* Accelerate.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 35E9727B2FA5F803004EE4B7 /* Accelerate.framework */; };
 		44CCF6C023026BD30071EB0F /* script-tests.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 44CCF6BF23026BD30071EB0F /* script-tests.cpp */; };
 		44CCF6C123026BD30071EB0F /* script-tests.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 44CCF6BF23026BD30071EB0F /* script-tests.cpp */; };
 		44CCF6C223026BD30071EB0F /* script-tests.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 44CCF6BF23026BD30071EB0F /* script-tests.cpp */; };
@@ -634,6 +636,8 @@
 		21F3EF0D2332D94A0028EB99 /* LaunchScreen.storyboard */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; path = LaunchScreen.storyboard; sourceTree = "<group>"; };
 		21F46DCF22E862E5008F1C05 /* script-functype.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "script-functype.h"; sourceTree = "<group>"; };
 		21FF43AD23EE7BDE00AC9831 /* libz.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libz.tbd; path = usr/lib/libz.tbd; sourceTree = SDKROOT; };
+		35E972792FA5F724004EE4B7 /* Accelerate.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Accelerate.framework; path = System/Library/Frameworks/Accelerate.framework; sourceTree = SDKROOT; };
+		35E9727B2FA5F803004EE4B7 /* Accelerate.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Accelerate.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.2.sdk/System/Library/Frameworks/Accelerate.framework; sourceTree = DEVELOPER_DIR; };
 		44CCF6BF23026BD30071EB0F /* script-tests.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "script-tests.cpp"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -642,6 +646,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				35E9727A2FA5F724004EE4B7 /* Accelerate.framework in Frameworks */,
 				212B1BB6264F8A8C00B078F4 /* libhlsl2glsl.a in Frameworks */,
 				21303D3F2459480E00E62C1F /* AVFoundation.framework in Frameworks */,
 				21303D402459480E00E62C1F /* AVKit.framework in Frameworks */,
@@ -660,6 +665,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				35E9727C2FA5F803004EE4B7 /* Accelerate.framework in Frameworks */,
 				212B1BB7264F8AA400B078F4 /* libhlsl2glsl-ios.a in Frameworks */,
 				21303D432459481C00E62C1F /* AVFoundation.framework in Frameworks */,
 				21303D442459481C00E62C1F /* AVKit.framework in Frameworks */,
@@ -863,6 +869,8 @@
 		213C06AD1CE8CF8F007DFA7D /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				35E972792FA5F724004EE4B7 /* Accelerate.framework */,
+				35E9727B2FA5F803004EE4B7 /* Accelerate.framework */,
 				21303D3B245947EB00E62C1F /* AVKit.framework */,
 				21303D39245947E400E62C1F /* AVFoundation.framework */,
 				21303D3D2459480E00E62C1F /* AVFoundation.framework */,

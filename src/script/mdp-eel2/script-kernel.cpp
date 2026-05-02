@@ -15,6 +15,81 @@
 #include <mutex>
 #include <thread>
 #include <future>         // std::async, std::future
+#include <condition_variable>
+#include <functional>
+
+namespace {
+// Simple single-worker thread pool to avoid per-frame thread creation
+class WorkerThread {
+public:
+    WorkerThread()
+    : m_stop(false)
+    , m_thread([this] { workLoop(); })
+    {}
+    
+    ~WorkerThread() {
+        stop();
+    }
+    
+    void submit(std::function<void()> task) {
+        {
+            std::lock_guard<std::mutex> lock(m_mutex);
+            m_queue.push(std::move(task));
+        }
+        m_cv.notify_one();
+    }
+    
+    void stop() {
+        {
+            std::lock_guard<std::mutex> lock(m_mutex);
+            if (m_stop) return;
+            m_stop = true;
+        }
+        m_cv.notify_one();
+        if (m_thread.joinable()) {
+            m_thread.join();
+        }
+    }
+    
+private:
+    void workLoop() {
+        while (true) {
+            std::function<void()> task;
+            {
+                std::unique_lock<std::mutex> lock(m_mutex);
+                m_cv.wait(lock, [this] {
+                    return m_stop || !m_queue.empty();
+                });
+                
+                if (m_stop && m_queue.empty())
+                    return;
+                
+                task = std::move(m_queue.front());
+                m_queue.pop();
+            }
+            
+            try {
+                task();
+            } catch (const std::exception& e) {
+                // logger.error("Task threw: ", e.what());
+            } catch (...) {
+                // logger.error("Task threw unknown exception");
+            }
+        }
+    }
+    
+    std::thread m_thread;
+    std::mutex m_mutex;
+    std::condition_variable m_cv;
+    std::queue<std::function<void()>> m_queue;
+    bool m_stop;
+};
+
+WorkerThread &GetWorkerThread() {
+    static WorkerThread instance;
+    return instance;
+}
+} // anonymous namespace
 
 
 namespace Script { namespace mdpx {
@@ -306,6 +381,9 @@ void Kernel::DebugUI()
     {
         PROFILE_FUNCTION_CAT("script")
 
+        if (!m_expr)
+            return;
+
         for (size_t iter=0; iter < iter_count; iter++)
         {
             // set registers
@@ -313,10 +391,9 @@ void Kernel::DebugUI()
             {
                 state[p] = params[p];
             }
-            
+
             // evaluate
-            if (m_expr)
-                m_expr->Evaluate(state);
+            m_expr->Evaluate(state);
 
             // capture registers
             for (size_t p = 0; p < param_count; p++)
@@ -516,12 +593,14 @@ void Kernel::DebugUI()
             {
                 auto self = shared_from_this();
 
-                m_future = std::async( std::launch::async,
-                                      [self] {
-                                          self->DoExecute();
-                                          return true;
-                                      }
-                            );
+                auto task = std::make_shared<std::packaged_task<bool()>>(
+                    [self] {
+                        self->DoExecute();
+                        return true;
+                    }
+                );
+                m_future = task->get_future();
+                GetWorkerThread().submit([task] { (*task)(); });
             }
             else
 #endif

@@ -246,6 +246,7 @@ public:
     
     std::vector<float> m_frameTimes;
     std::vector<float> m_frameTimeHistory;
+    int           m_frameTimeHistoryHead = 0;
 };
 
 using VizControllerPtr = std::shared_ptr<VizController>;

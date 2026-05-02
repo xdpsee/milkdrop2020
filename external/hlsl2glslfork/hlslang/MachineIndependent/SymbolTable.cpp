@@ -72,7 +72,7 @@ void TType::buildMangledName(TString& mangledName) const
 	if (isArray())
 	{
 		char buf[10];
-		sprintf(buf, "%d", arraySize);
+		snprintf(buf, 10, "%d", arraySize);
 		mangledName += 'a';
 		mangledName += buf;
 	}
@@ -302,13 +302,27 @@ TSymbolTableLevel* TSymbolTableLevel::clone(TStructureMap& remapper)
 
 // This is the sort function for parameter matching in findCompatible method below
 bool parameterSizeSortFunction(TParameter left, TParameter right) {
+	bool leftNumeric = IsNumeric(left.type->getBasicType());
+	bool rightNumeric = IsNumeric(right.type->getBasicType());
+
 	// non-numeric types come first
-	if (!IsNumeric(left.type->getBasicType()))
+	if (!leftNumeric && rightNumeric)
 		return true;
-	else if (IsNumeric(left.type->getBasicType()) && !IsNumeric(right.type->getBasicType()))
+	if (leftNumeric && !rightNumeric)
 		return false;
-	// then sort according to numeric type's dimension in descending order
-	else return (left.type->getColsCount() >= right.type->getColsCount() && left.type->getRowsCount() >= right.type->getRowsCount());
+
+	// both non-numeric: preserve original relative order
+	if (!leftNumeric && !rightNumeric)
+		return false;
+
+	// both numeric: sort by total dimension in descending order
+	int leftDim = left.type->getColsCount() * left.type->getRowsCount();
+	int rightDim = right.type->getColsCount() * right.type->getRowsCount();
+	if (leftDim != rightDim)
+		return leftDim > rightDim;
+	if (left.type->getColsCount() != right.type->getColsCount())
+		return left.type->getColsCount() > right.type->getColsCount();
+	return left.type->getRowsCount() > right.type->getRowsCount();
 }
 
 // This function uses the matching rules as described in the Cg language doc (the closest

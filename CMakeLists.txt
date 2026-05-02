@@ -162,6 +162,7 @@ if (APPLE)
         ${COMMON_SOURCE_DIR}/audio/AVAudioEngineSource.mm
         ${COMMON_SOURCE_DIR}/audio/CoreAudioSource.mm
 	    ${APP_SOURCE_DIR}/OSX/console_main.mm
+	    ${APP_SOURCE_DIR}/CommonApple/CommonApple.mm
 	    )
 
     target_link_libraries(
@@ -175,6 +176,7 @@ if (APPLE)
         "-framework CoreAudio"
         "-framework Metal"
         "-framework MetalKit"
+        "-framework Accelerate"
         "-framework GameController"
         "-framework OpenAL"
         "-lz"
